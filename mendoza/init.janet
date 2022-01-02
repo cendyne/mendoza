@@ -53,12 +53,14 @@
 
 (defn- rimraf
   "Remove a directory and all sub directories."
-  [path]
+  [root path]
   (if-let [m (os/stat path :mode)]
     (if (= m :directory)
       (do
-        (each subpath (os/dir path) (rimraf (string path "/" subpath)))
-        (os/rmdir path))
+        (each subpath (os/dir path) (rimraf root (string path "/" subpath)))
+        (when (not= root path)
+          # Don't remove the root path, it may be mounted and that cannot be done.
+          (os/rmdir path)))
       (os/rm path))))
 
 (defn- url-prefix
@@ -78,7 +80,7 @@
   (default site "site")
   (unless (= site ".")
     (print "Removing directory " site "...")
-    (rimraf site))
+    (rimraf site site))
   (print "Unloading cached modules...")
   (watch-cache/clean))
 
@@ -111,7 +113,9 @@
 
   # Clean up old artifacts
   (clean site)
-  (os/mkdir site)
+  # Only create the site folder if it does not exist
+  (unless (os/stat site)
+    (os/mkdir site))
 
   # Read in pages
   (def pages @[])
@@ -163,7 +167,9 @@
   "Watch for files changing, and re-run mendoza when source files
   change. Only works when content files and templates change, and
   only on linux for now."
-  []
+  [&opt site root]
+  (default site "site")
+  (default root "/")
 
   # Check which directories exist
   (def watched-dirs @"")
@@ -172,7 +178,7 @@
       (buffer/push-string watched-dirs path " ")))
 
   (defn rebuild []
-    (def f (fiber/new build :e))
+    (def f (fiber/new |(build site root) :e))
     (def res (resume f))
     (case (fiber/status f)
       :error (do

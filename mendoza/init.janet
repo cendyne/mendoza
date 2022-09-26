@@ -16,6 +16,9 @@
 # For serving local files
 (import circlet)
 
+# json
+(import spork/json)
+
 #
 # Add loaders
 #
@@ -70,6 +73,25 @@
     url
     (string (dyn :site-root "/") url)))
 
+(defn- load-pages
+  []
+  # Read in pages
+  (def pages @[])
+  (defn read-pages [root &opt path]
+    (default path root)
+    (case (os/stat path :mode)
+      :directory (each f (sort (os/dir path))
+                   (read-pages root (string path "/" f)))
+      :file (when (and (> (length path) 3) (= ".mdz" (string/slice path -5)))
+              (print "Parsing content " path " as mendoza markup")
+              (def page (require path))
+              (put page :input path)
+              (put page :url (page-get-url root page))
+              (array/push pages page))))
+  (read-pages "content")
+  (read-pages "doc")
+  pages)
+
 #
 # Main API
 #
@@ -117,21 +139,7 @@
   (unless (os/stat site)
     (os/mkdir site))
 
-  # Read in pages
-  (def pages @[])
-  (defn read-pages [root &opt path]
-    (default path root)
-    (case (os/stat path :mode)
-      :directory (each f (sort (os/dir path))
-                   (read-pages root (string path "/" f)))
-      :file (when (and (> (length path) 3) (= ".mdz" (string/slice path -5)))
-              (print "Parsing content " path " as mendoza markup")
-              (def page (require path))
-              (put page :input path)
-              (put page :url (page-get-url root page))
-              (array/push pages page))))
-  (read-pages "content")
-  (read-pages "doc")
+  (def pages (load-pages))
 
   # Make sitemap
   (def smap (sitemap/create pages))
@@ -221,3 +229,48 @@
     (print "buffer: " buf)
     (rebuild)
     (print "Rebuild " (++ build-iter))))
+
+(defn sitemap
+  "Export the header data for each page as an element in a sitemap json"
+  [&opt output-file root]
+  (default output-file "sitemap.json")
+  (default root "/")
+
+  (setdyn :site-root root)
+  (def pages (load-pages))
+  (def sitemap @{})
+  (defn filter-json [v]
+    (cond
+      (bytes? v) v
+      (number? v) v
+      (indexed? v) (do
+        (def output @[])
+        (each value v
+          (def result (filter-json value))
+          (when result (array/push output result))
+        )
+        output)
+      (dictionary? v) (do
+        (def output @{})
+        (eachp [key value] v
+          (def result (filter-json value))
+          (when result (put output key result))
+        )
+        output)
+      # Functions and other object are a no go.
+      true nil
+    )
+  )
+  (each page pages
+    (put page :content nil)
+    (put page :template nil)
+    (def url (page :url))
+    (put page :url nil)
+    (put page :template nil)
+    (put sitemap url (filter-json page))
+  )
+  (def json (json/encode sitemap "  " "\n"))
+  (when-with [fl (file/open output-file :w)]
+    (file/write fl json)
+    (file/flush fl))
+  )

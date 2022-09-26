@@ -43,4 +43,6 @@
   "clean" (mdz/clean (get args 2))
   "serve" (mdz/serve (get args 2) (get args 3) (get args 4))
   "watch" (mdz/watch (get args 2) (get args 3))
-  "build" (mdz/build (get args 2) (get args 3)))
+  "build" (mdz/build (get args 2) (get args 3))
+  "sitemap" (mdz/sitemap (get args 2) (get args 3))
+  )

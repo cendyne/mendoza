@@ -79,3 +79,14 @@
 
     (number? node) (buffer/push-string buf (string node)))
   buf)
+
+(defn render-plain
+  "Renders a document node as plain text"
+  [node buf]
+  (cond
+    (nil? node) nil
+    (bytes? node) (buffer/push-string buf node)
+    (indexed? node) (each c node (render-plain c buf))
+    (dictionary? node) (render-plain (node :content) buf)
+    (number? node) (buffer/push-string buf (string node)))
+  buf)

@@ -1,0 +1,44 @@
+(use mendoza/render)
+{:title "Artifacts"
+ :template "mdzdoc/main.html"
+ :author "Cendyne"
+ :topbar true
+ :order 7
+ :artifacts [
+  {:extension ".txt" :content (fn [page &] (render-plain page @""))}
+  {:path "/something.txt" :contetn (fn [&] "Nothing to see here")}
+  ]
+ }
+---
+# Artifacts
+
+At the top of a mendoza markdown file, @code{:artifacts} may be used to add additional outputs to the page.
+For example, alternate representations such as plaintext are possible with this extension.
+
+Multiple artifacts are supported, so the type that goes in must be an indexed type, such as a tuple or array.
+
+Each element in the indexed type is a dictionary or table with the following keys
+
+@ul{
+  @li{@code{:extension} or @code{:path}, which must be a string or buffer type.}
+  @li{@code{:content}, to be described below}
+}
+
+## File Path
+
+The artifact will be written to the file path determined with either @code{:extension} or @code{:path}.
+
+When @code{:extension} is used, @code{".html"} is removed from the path of the overall page and the string value of the @code{extension} is appended.
+Thus, if @code{:extension ".txt"} is used, and the page path would otherwise be @code{"/content/artifacts.html"}, then it will become @code{"/content/artifacts.txt"}.
+
+When @code{:path} is used, the path of the overall page is ignored.
+This path name must begin with @code{"/"}.
+For example, if @code{:path "/something.txt"} is used, then a file will be written to at "/something.txt".
+Conflicts during the build process are not prevented.
+
+## Content
+
+The @code{:content} value in the dictionary or table must be a callback in the form of @code{\(fn [&] "...")} or @code{\(fn [page &] "...")}.
+Additional parameters may be added in the future, a variadic function is safest to use.
+The @code{page} parameter is the same as used in @code{mendoza/render/render}, which is to say a document node.
+Any use of templates is on the callback to implement if used.

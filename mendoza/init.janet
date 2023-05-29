@@ -155,10 +155,44 @@
         (loop [[k v] :pairs page :when (keyword? k)]
           (setdyn k v))
         (render/render page @"")))
-    (def outpath (string site url))
+    (var outpath (string site url))
     (print "Writing HTML to " outpath)
     (create-dirs outpath)
-    (spit outpath out))
+    (spit outpath out)
+    (def artifacts (get page :artifacts))
+    (when artifacts
+      (var has-outpath false)
+      (each artifact artifacts
+        (set has-outpath false)
+        (set outpath (string site url))
+        (when (string/has-suffix? ".html" outpath)
+          (set outpath (string/slice outpath 0 -6)))
+        (def extension (get artifact :extension))
+        (when extension
+          (set outpath (string outpath extension))
+          (set has-outpath true))
+        (def path (get artifact :path))
+        (when path
+          (set outpath (string site path))
+          (set has-outpath true))
+        (def content (get artifact :content))
+        (unless content (print "Skipping artifact in " url " due to no content"))
+        (when (and has-outpath content)
+          (def out (with-dyns [
+            :url url
+            :pages pages
+            :sitemap smap
+            :page page]
+              (content page)
+            ))
+            (print "Writing to " outpath)
+            (spit outpath out)
+          )
+        (unless has-outpath
+          (print "Skipping artifact in " url " due to no extension or path"))
+      )
+    )
+  )
 
   # Render all pages
   (loop [page :in pages]
